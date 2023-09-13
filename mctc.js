@@ -201,6 +201,8 @@ const run = async () => {
     const emotes = message.tags.emotes;
     // Check if the message is related to a custom reward (e.g. "submit your words")
     const isRewardMsg = message.tags.hasOwnProperty("customRewardId");
+    // Check if it is a highlighted message
+    const isHighlightedMsg = message.tags.hasOwnProperty("msgId") && (message.tags.msgId === "highlighted-message");
 
     // Debug stuff
     // Might spam your DevTools console if a lot is going on in chat.
@@ -216,6 +218,13 @@ const run = async () => {
     if (event !== "PRIVMSG") { 
         allowMessage = false;
         console.debug("Event ain't chat message, ignoring");
+    }
+
+    // Is the message a command (like !shop)?
+    // > Commands should not be displayed
+    if (msg[0] === "!") {
+        allowMessage = false;
+        console.debug("Message seems to be a command, ignoring");        
     }
 
     // Is the message related to a reward (e.g. change your character)?
@@ -237,6 +246,13 @@ const run = async () => {
     if (allowMessage){
         chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(message) + 
           "</span><span id='username' style='color: " + usercolor + ";'>" + username + "</span><span id='message'>" + getMessageHTML(msg, emotes) + "</span></div>";
+
+        // Add css class if highlighted
+        if (isHighlightedMsg) {
+            document.getElementById("message").classList.add("highlighted");
+        } else {
+            document.getElementById("message").classList.remove("highlighted");
+        }
     }
   });
 

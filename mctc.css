@@ -38,3 +38,9 @@
 #message {
     /* empty for now */
 }
+
+#message .highlighted {
+    /* Style for highlighted message */
+    color: goldenrod;
+    font-weight: bold;
+}
