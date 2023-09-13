@@ -79,7 +79,7 @@ function getMessageHTML(message, emotes) {
       // Add replacement to array
       stringReplacements.push({
         stringToReplace: stringToReplace,
-        replacement: `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v1/${data.id}/3.0">`,
+        replacement: `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${data.id}/default/dark/3.0">`,
       });
     });
 
@@ -205,7 +205,7 @@ const run = async () => {
     // Debug stuff
     // Might spam your DevTools console if a lot is going on in chat.
     console.debug(`${time} - ${event} - ${username} - ${msg}`);
-    //console.debug(message);
+    console.debug(message);
 
     // Check if the message should be shown - START
     // Usually users' messages should be shown, but we will check if there is a condition where we don't want that
