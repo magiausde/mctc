@@ -59,8 +59,10 @@ chatbar.innerHTML = "Starting up! This text should disappear soon. Please wait..
 // This function replaces text with the emote images (HTML)
 function getMessageHTML(message, emotes) {
     // Prevent user XSS/HTML injection
+    message = message.replaceAll('<3', '##HEART##'); // fix for <3 emote
     message = message.replaceAll('<', '&lt;');
     message = message.replaceAll('>', '&gt;');
+    message = message.replaceAll('##HEART##', '<3'); // fix for <3 emote
 
     // If emotes aren't defined, we have nothing to do
     if (!emotes) return message;
