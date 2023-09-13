@@ -203,6 +203,7 @@ const run = async () => {
     const isRewardMsg = message.tags.hasOwnProperty("customRewardId");
     // Check if it is a highlighted message
     const isHighlightedMsg = message.tags.hasOwnProperty("msgId") && (message.tags.msgId === "highlighted-message");
+    console.debug("Is highlighted? " + isHighlightedMsg);
 
     // Debug stuff
     // Might spam your DevTools console if a lot is going on in chat.
@@ -215,9 +216,9 @@ const run = async () => {
 
     // Is the event a user message?
     // > We will only show user messages in chat
-    if (event !== "PRIVMSG") { 
+    if ((event !== "PRIVMSG") && (event !== "CHEER")) { 
         allowMessage = false;
-        console.debug("Event ain't chat message, ignoring");
+        console.debug("Event ain't chat message or cheer, ignoring");
     }
 
     // Is the message a command (like !shop)?
