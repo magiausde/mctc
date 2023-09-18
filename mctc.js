@@ -244,6 +244,42 @@ function replaceStringCheerWithHTML(msgobj) {
     }
 }
 
+// Checks if a message should be shown
+function isMessageAllowed(msgobj) {
+    // Usually users' messages should be shown, but we will check if there is a condition where we don't want that
+
+    // Is the event a user message?
+    // > We will only show user messages in chat
+    if ((msgobj.event !== "PRIVMSG") && (msgobj.event !== "CHEER")) { 
+        console.debug("Event ain't chat message or cheer, ignoring");
+        return false;
+    }
+
+    // Is the message a command (like !shop)?
+    // > Commands should not be displayed
+    if (msgobj.message[0] === "!") {
+        console.debug("Message seems to be a command, ignoring");
+        return false;
+    }
+
+    // Is the message related to a reward (e.g. change your character)?
+    // > Messages related to a reward should not spam the overlay chat
+    if (msgobj.tags.hasOwnProperty("customRewardId")) {
+        console.debug("Message relates to reward, ignoring");
+        return false;
+    }
+
+    // Shall the user be hidden (e.g. bot)?
+    // > Bot messages should not spam the overlay chat
+    if (hideUsers.includes(msgobj.username)) {
+        console.debug("Message is from hidden user '" + msgobj.username + "', ignoring message");
+        return false;
+    }
+
+    // Message seems to be allowed!
+    return true;
+}
+
 const run = async () => {
     // Create new twitch-js Chat instance
   const chat = new Chat({
@@ -254,69 +290,33 @@ const run = async () => {
 
   // chat.on is the event which gets fired whenever there is some activity in the chat.
   // This mustn't necessarily be a chat message, it could also be, e.g. a resub, ping or ban event.
-  chat.on("*", (message) => {
+  chat.on("*", (msgobj) => {
     // Time the message/event was sent
-    const time = new Date(message.timestamp).toLocaleTimeString();
+    const time = new Date(msgobj.timestamp).toLocaleTimeString();
     // The event itself (usually "PRIVMSG" - user chat message)
-    const event = message.event || message.command;
+    const event = msgobj.event || mesmsgobjsage.command;
     // username => all lowercase (e.g. nightbot) // displayName => e.g. NightBot
-    const username = message.tags.displayName; // or message.username
+    const username = msgobj.tags.displayName; // or message.username
     // the users chat color (if set, or else your preferred value)
-    const usercolor = message.tags.color || "black"; // <== You can specify a default color if a user has not set one
+    const usercolor = msgobj.tags.color || "black"; // <== You can specify a default color if a user has not set one
     // "Real" message content, e.g. "Hello world! I'm magiausde"
-    const msgtext = message.message || "";
+    const msgtext = msgobj.message || "";
     // Array of emotes this message contains
-    const emotes = message.tags.emotes;
-    // Check if the message is related to a custom reward (e.g. "submit your words")
-    const isRewardMsg = message.tags.hasOwnProperty("customRewardId");
+    const emotes = msgobj.tags.emotes;
     // Check if it is a highlighted message
-    const isHighlightedMsg = message.tags.hasOwnProperty("msgId") && (message.tags.msgId === "highlighted-message");
+    const isHighlightedMsg = msgobj.tags.hasOwnProperty("msgId") && (msgobj.tags.msgId === "highlighted-message");
     console.debug("Is highlighted? " + isHighlightedMsg);
 
     // Debug stuff
     // Might spam your DevTools console if a lot is going on in chat.
     console.debug(`${time} - ${event} - ${username} - ${msgtext}`);
-    console.debug(message);
-
-    // Check if the message should be shown - START
-    // Usually users' messages should be shown, but we will check if there is a condition where we don't want that
-    allowMessage = true;
-
-    // Is the event a user message?
-    // > We will only show user messages in chat
-    if ((event !== "PRIVMSG") && (event !== "CHEER")) { 
-    //if ((event !== "CHEER")) { 
-        allowMessage = false;
-        console.debug("Event ain't chat message or cheer, ignoring");
-    }
-
-    // Is the message a command (like !shop)?
-    // > Commands should not be displayed
-    if (msgtext[0] === "!") {
-        allowMessage = false;
-        console.debug("Message seems to be a command, ignoring");        
-    }
-
-    // Is the message related to a reward (e.g. change your character)?
-    // > Messages related to a reward should not spam the overlay chat
-    if (isRewardMsg) {
-        allowMessage = false;
-        console.debug("Message relates to reward, ignoring");
-    }
-
-    // Shall the user be hidden (e.g. bot)?
-    // > Bot messages should not spam the overlay chat
-    if (hideUsers.includes(message.username)) {
-        allowMessage = false;
-        console.debug("Message is from hidden user '" + message.username + "', ignoring message");
-    }
-    // Check if the message should be shown - END
+    console.debug(msgobj);
 
     // Is is still a message we would like to show? Yes? Then show it!
-    if (allowMessage){
-        chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(message) + 
+    if (isMessageAllowed(msgobj)){
+        chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(msgobj) + 
           "</span><span id='username' style='color: " + usercolor + ";'>" + username +
-          "</span><span id='message'>" + replaceStringEmotesWithHTML(replaceStringCheerWithHTML(message), emotes) + "</span></div>";
+          "</span><span id='message'>" + replaceStringEmotesWithHTML(replaceStringCheerWithHTML(msgobj), emotes) + "</span></div>";
 
         // Add css class if highlighted
         if (isHighlightedMsg) {
