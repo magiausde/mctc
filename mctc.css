@@ -44,3 +44,16 @@
     color: goldenrod;
     font-weight: bold;
 }
+
+/* How the cheermote is being shown */
+.cheermote {
+    height: 45px;
+    margin-top: -7px;
+    vertical-align: middle;
+}
+
+/* The bits amount after a cheermote, like Cheer100 */
+.bits {
+    color: goldenrod;
+    font-weight: bold;
+}

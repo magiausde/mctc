@@ -56,15 +56,18 @@ const chatbar = document.getElementById("chatbar");
 
 chatbar.innerHTML = "Starting up! This text should disappear soon. Please wait...";
 
-// Based on https://www.stefanjudis.com/blog/how-to-display-twitch-emotes-in-tmi-js-chat-messages/
-// This function replaces text with the emote images (HTML)
-function replaceStringEmotesWithHTML(message, emotes) {
+function getHTMLSafeText(rawmsg) {
     // Prevent user XSS/HTML injection
-    message = message.replaceAll('<3', '##HEART##'); // fix for <3 emote
+    message = rawmsg.replaceAll('<3', '##HEART##'); // fix for <3 emote
     message = message.replaceAll('<', '&lt;');
     message = message.replaceAll('>', '&gt;');
     message = message.replaceAll('##HEART##', '<3'); // fix for <3 emote
+    return message;
+}
 
+// Based on https://www.stefanjudis.com/blog/how-to-display-twitch-emotes-in-tmi-js-chat-messages/
+// This function replaces text with the emote images (HTML)
+function replaceStringEmotesWithHTML(message, emotes) {
     // If emotes aren't defined, we have nothing to do
     if (!emotes) return message;
   
@@ -172,7 +175,7 @@ async function loadCheermotes() {
     cheermotes = await responseG.json();
     //console.debug(cheermotes);
 
-    chatbar.innerHTML = "<b>Sorting cheermotes...</b>";
+    chatbar.innerHTML = "<b>Processing cheermotes...</b>";
 
     // Sort min_bits descending (so we can check what is the highest tier)
     // It looks like the "tier" array is already sorted ascending, but we should not rely on that!
@@ -210,33 +213,34 @@ function getBadgesForUserFromMessage(msg) {
 }
 
 // Returns text/String!
+// Info: Cheermotes are case insensitive! So cheer500 and Cheer500 must work
 function replaceStringCheerWithHTML(msgobj) {
-    msgtext = msgobj.message;
+    msgtext = getHTMLSafeText(msgobj.message);
 
     // If the message does not include bits-info, just return the message text
     if (!msgobj.hasOwnProperty("bits")) {
         return msgtext;
     } else {
-        const bits = msgobj.bits; // all cheermotes in total
-
         cheermotes.data.forEach(cm => {
             // Search for occurances => loadCheer100 <= loadCheer = Prefix, 100 = Bits of cheermote
             pattern = cm.prefix + '(\\d+)';
-            regex = RegExp(pattern);
+            regex = RegExp(pattern, "i"); // case insensitive!
 
             while ( (cmr = regex.exec(msgtext)) ) {
                 console.debug("Found " + cmr[0] + " in " + msgtext);
                 partbits = cmr[1];
 
                 // Now check which is the highest cheermote to use (partbits > min_bits)
-                cm.tiers.forEach(tier => {
+                for (let tier of cm.tiers) {
                     if (partbits >= tier.min_bits) {
-                        msgtext.replaceAll(cmr[0], '<img class="badge" src="' + tier.images.dark.animated[3] + '"></img><span class="bits">' + cmr[1] + '</span>');
-                        exit;
+                        msgtext = msgtext.replaceAll(cmr[0], '<img class="cheermote" src="' + tier.images.dark.animated[3] + '"></img><span class="bits">' + cmr[1] + '</span>');
+                        break;
                     }
-                });
+                }
             }
         });
+
+        return msgtext;
     }
 }
 
