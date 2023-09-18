@@ -57,3 +57,9 @@
     color: goldenrod;
     font-weight: bold;
 }
+
+/* Applies to mentions, like [ExampleUser123: @magiausde Awesome!] => @magiausde */
+.mention {
+    font-style: italic;
+    color: gray;
+}

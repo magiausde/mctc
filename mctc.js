@@ -44,6 +44,7 @@ token = undefined; // Will be requested later
 broadcasterid = -1; // Will be looked up later (via ID)
 badgeURLs = []; // contains the links to the badges
 cheermotes = {}; // contains the cheermotes JSON
+const mentionregex = /@\w+\s/gi;
 
 // Update Window/Tab title
 document.title = 'MCTC | ' + channel;
@@ -280,6 +281,16 @@ function isMessageAllowed(msgobj) {
     return true;
 }
 
+function convertMentionsCSS(message) {
+    // The check is cheaper in terms of computing power than doing the RegEx all the time.
+    // So only do it, if necessary.
+    if (message.includes("@")) {
+        return message.replace(mentionregex, '<span class="mention">$&</span>');
+    } else {
+        return message;
+    }
+}
+
 const run = async () => {
     // Create new twitch-js Chat instance
   const chat = new Chat({
@@ -316,7 +327,7 @@ const run = async () => {
     if (isMessageAllowed(msgobj)){
         chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(msgobj) + 
           "</span><span id='username' style='color: " + usercolor + ";'>" + username +
-          "</span><span id='message'>" + replaceStringEmotesWithHTML(replaceStringCheerWithHTML(msgobj), emotes) + "</span></div>";
+          "</span><span id='message'>" + convertMentionsCSS(replaceStringEmotesWithHTML(replaceStringCheerWithHTML(msgobj), emotes)) + "</span></div>";
 
         // Add css class if highlighted
         if (isHighlightedMsg) {
