@@ -5,6 +5,7 @@
     font-size: 38px;
     font-family: 'Trebuchet MS', sans-serif;
     color: white;
+    letter-spacing: -1.5px;
 }
 
 /* Style how emotes are displayed */
@@ -32,6 +33,7 @@
     /* color: ... will be automatically applied! */
     font-weight: bold;
     margin-right: 15px; /* margin between chat message */
+    text-shadow: black 0 0 8px;
 }
 
 /* The content a user wrote */
@@ -56,6 +58,7 @@
 .bits {
     color: goldenrod;
     font-weight: bold;
+    text-shadow: yellow 0 0 8px;
 }
 
 /* Applies to mentions, like [ExampleUser123: @magiausde Awesome!] => @magiausde */
