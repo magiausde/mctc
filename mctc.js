@@ -45,6 +45,7 @@ broadcasterid = -1; // Will be looked up later (via ID)
 badgeURLs = []; // contains the links to the badges
 cheermotes = {}; // contains the cheermotes JSON
 const mentionregex = /@\w+\s/gi;
+currentmsgraw = ""; // Raw message text of currently shown message (needed for CLEARMSG)
 
 // Update Window/Tab title
 document.title = 'MCTC | ' + channel;
@@ -309,7 +310,7 @@ const run = async () => {
     // username => all lowercase (e.g. nightbot) // displayName => e.g. NightBot
     const username = msgobj.tags.displayName; // or message.username
     // the users chat color (if set, or else your preferred value)
-    const usercolor = msgobj.tags.color || "black"; // <== You can specify a default color if a user has not set one
+    const usercolor = msgobj.tags.color || "aqua"; // <== You can specify a default color if a user has not set one
     // "Real" message content, e.g. "Hello world! I'm magiausde"
     const msgtext = msgobj.message || "";
     // Array of emotes this message contains
@@ -323,17 +324,25 @@ const run = async () => {
     console.debug(`${time} - ${event} - ${username} - ${msgtext}`);
     console.debug(msgobj);
 
+    if ((event === "CLEARMSG") && (msgtext === currentmsgraw)) {
+        chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='message'>\
+        <img class='emote' src='https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_b0c6ccb3b12b4f99a9cc83af365a09f1/default/dark/3.0'>\
+        &nbsp;This message has been deleted!&nbsp;<img class='emote' src='https://static-cdn.jtvnw.net/emoticons/v2/81103/default/dark/3.0'></span></div>";
+    } else {
     // Is is still a message we would like to show? Yes? Then show it!
-    if (isMessageAllowed(msgobj)){
-        chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(msgobj) + 
-          "</span><span id='username' style='color: " + usercolor + ";'>" + username +
-          "</span><span id='message'>" + convertMentionsCSS(replaceStringEmotesWithHTML(replaceStringCheerWithHTML(msgobj), emotes)) + "</span></div>";
+        if (isMessageAllowed(msgobj)){
+            chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(msgobj) + 
+            "</span><span id='username' style='color: " + usercolor + ";'>" + username +
+            "</span><span id='message'>" + convertMentionsCSS(replaceStringEmotesWithHTML(replaceStringCheerWithHTML(msgobj), emotes)) + "</span></div>";
 
-        // Add css class if highlighted
-        if (isHighlightedMsg) {
-            document.getElementById("message").classList.add("highlighted");
-        } else {
-            document.getElementById("message").classList.remove("highlighted");
+            // Add css class if highlighted
+            if (isHighlightedMsg) {
+                document.getElementById("message").classList.add("highlighted");
+            } else {
+                document.getElementById("message").classList.remove("highlighted");
+            }
+
+            currentmsgraw = msgtext;
         }
     }
   });
