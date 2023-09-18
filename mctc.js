@@ -43,6 +43,7 @@ const username = undefined;
 token = undefined; // Will be requested later
 broadcasterid = -1; // Will be looked up later (via ID)
 badgeURLs = []; // contains the links to the badges
+cheermotes = {}; // contains the cheermotes JSON
 
 // Update Window/Tab title
 document.title = 'MCTC | ' + channel;
@@ -55,15 +56,18 @@ const chatbar = document.getElementById("chatbar");
 
 chatbar.innerHTML = "Starting up! This text should disappear soon. Please wait...";
 
-// Based on https://www.stefanjudis.com/blog/how-to-display-twitch-emotes-in-tmi-js-chat-messages/
-// This function replaces text with the emote images (HTML)
-function getMessageHTML(message, emotes) {
+function getHTMLSafeText(rawmsg) {
     // Prevent user XSS/HTML injection
-    message = message.replaceAll('<3', '##HEART##'); // fix for <3 emote
+    message = rawmsg.replaceAll('<3', '##HEART##'); // fix for <3 emote
     message = message.replaceAll('<', '&lt;');
     message = message.replaceAll('>', '&gt;');
     message = message.replaceAll('##HEART##', '<3'); // fix for <3 emote
+    return message;
+}
 
+// Based on https://www.stefanjudis.com/blog/how-to-display-twitch-emotes-in-tmi-js-chat-messages/
+// This function replaces text with the emote images (HTML)
+function replaceStringEmotesWithHTML(message, emotes) {
     // If emotes aren't defined, we have nothing to do
     if (!emotes) return message;
   
@@ -92,10 +96,8 @@ function getMessageHTML(message, emotes) {
     return messageHTML;
 }
 
-// loadBadges retrieves the badges (like sub, mod, vip, etc.)
-// We get the badges and the links to the corresponding images, these will be stored in a key-value array/dict.
-async function loadBadges() {
-    // First, we must get a token from twitch to authenticate against the following API requests.
+async function retrieveAPIToken() {
+    // Get a token from twitch to authenticate against the following API requests.
     chatbar.innerHTML = "<b>Logging in to API</b>";
     const responseAuth = await fetch("https://id.twitch.tv/oauth2/token", {
         method: "POST",
@@ -103,11 +105,13 @@ async function loadBadges() {
             'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
         },
         body: "client_id=" + APP_ID + "&client_secret=" + APP_SECRET + "&grant_type=client_credentials"
-     }
+        }
     );
     const authInfo = await responseAuth.json();
     token = authInfo.access_token;
+}
 
+async function fetchBroadcasterID() {
     // We need the user/broadcaster ID to get their badges, so look it up first
     chatbar.innerHTML = "<b>Getting broadcaster ID</b>";
     const responseI = await fetch("https://api.twitch.tv/helix/users?login=" + channel, {
@@ -118,7 +122,12 @@ async function loadBadges() {
     });
     const bdI = await responseI.json();
     broadcasterid = bdI.data[0].id;
+    console.debug("Broadcaster ID is " + broadcasterid);
+}
 
+// loadBadges retrieves the badges (like sub, mod, vip, etc.)
+// We get the badges and the links to the corresponding images, these will be stored in a key-value array/dict.
+async function loadBadges() {
     // Global Badges
     chatbar.innerHTML = "<b>Loading global badge image URLs...</b>";
     const responseG = await fetch("https://api.twitch.tv/helix/chat/badges/global", {
@@ -152,6 +161,33 @@ async function loadBadges() {
     });
 }
 
+// loadCheermotes retrieves the global and channel-specific cheermotes
+// We get the cheermotes - but as we need to do some checks later (min_bits etc.), we store the whole JSON response
+async function loadCheermotes() {
+    // According to the docs, if we specify a "broadcaster_id", it contains both global and channel specific cheermotes
+    chatbar.innerHTML = "<b>Loading cheermote image URLs...</b>";
+    const responseG = await fetch("https://api.twitch.tv/helix/bits/cheermotes?broadcaster_id=" + broadcasterid, {
+        headers: {
+            "Authorization": "Bearer " + token,
+            "Client-Id": APP_ID
+        }
+    });
+    cheermotes = await responseG.json();
+    //console.debug(cheermotes);
+
+    chatbar.innerHTML = "<b>Processing cheermotes...</b>";
+
+    // Sort min_bits descending (so we can check what is the highest tier)
+    // It looks like the "tier" array is already sorted ascending, but we should not rely on that!
+    cheermotes.data.forEach(cm => {
+        cm.tiers.sort((a, b) => {  
+            return b.min_bits-a.min_bits;
+          });
+    });
+
+    console.debug(cheermotes);
+}
+
 // This function takes a message object and returns HTML to show the badges for a user
 function getBadgesForUserFromMessage(msg) {
     // We use RegEx to get the badge-details from the _raw-attribute
@@ -176,6 +212,38 @@ function getBadgesForUserFromMessage(msg) {
     }
 }
 
+// Returns text/String!
+// Info: Cheermotes are case insensitive! So cheer500 and Cheer500 must work
+function replaceStringCheerWithHTML(msgobj) {
+    msgtext = getHTMLSafeText(msgobj.message);
+
+    // If the message does not include bits-info, just return the message text
+    if (!msgobj.hasOwnProperty("bits")) {
+        return msgtext;
+    } else {
+        cheermotes.data.forEach(cm => {
+            // Search for occurances => loadCheer100 <= loadCheer = Prefix, 100 = Bits of cheermote
+            pattern = cm.prefix + '(\\d+)';
+            regex = RegExp(pattern, "i"); // case insensitive!
+
+            while ( (cmr = regex.exec(msgtext)) ) {
+                console.debug("Found " + cmr[0] + " in " + msgtext);
+                partbits = cmr[1];
+
+                // Now check which is the highest cheermote to use (partbits > min_bits)
+                for (let tier of cm.tiers) {
+                    if (partbits >= tier.min_bits) {
+                        msgtext = msgtext.replaceAll(cmr[0], '<img class="cheermote" src="' + tier.images.dark.animated[3] + '"></img><span class="bits">' + cmr[1] + '</span>');
+                        break;
+                    }
+                }
+            }
+        });
+
+        return msgtext;
+    }
+}
+
 const run = async () => {
     // Create new twitch-js Chat instance
   const chat = new Chat({
@@ -196,7 +264,7 @@ const run = async () => {
     // the users chat color (if set, or else your preferred value)
     const usercolor = message.tags.color || "black"; // <== You can specify a default color if a user has not set one
     // "Real" message content, e.g. "Hello world! I'm magiausde"
-    const msg = message.message || "";
+    const msgtext = message.message || "";
     // Array of emotes this message contains
     const emotes = message.tags.emotes;
     // Check if the message is related to a custom reward (e.g. "submit your words")
@@ -207,7 +275,7 @@ const run = async () => {
 
     // Debug stuff
     // Might spam your DevTools console if a lot is going on in chat.
-    console.debug(`${time} - ${event} - ${username} - ${msg}`);
+    console.debug(`${time} - ${event} - ${username} - ${msgtext}`);
     console.debug(message);
 
     // Check if the message should be shown - START
@@ -217,13 +285,14 @@ const run = async () => {
     // Is the event a user message?
     // > We will only show user messages in chat
     if ((event !== "PRIVMSG") && (event !== "CHEER")) { 
+    //if ((event !== "CHEER")) { 
         allowMessage = false;
         console.debug("Event ain't chat message or cheer, ignoring");
     }
 
     // Is the message a command (like !shop)?
     // > Commands should not be displayed
-    if (msg[0] === "!") {
+    if (msgtext[0] === "!") {
         allowMessage = false;
         console.debug("Message seems to be a command, ignoring");        
     }
@@ -246,7 +315,8 @@ const run = async () => {
     // Is is still a message we would like to show? Yes? Then show it!
     if (allowMessage){
         chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(message) + 
-          "</span><span id='username' style='color: " + usercolor + ";'>" + username + "</span><span id='message'>" + getMessageHTML(msg, emotes) + "</span></div>";
+          "</span><span id='username' style='color: " + usercolor + ";'>" + username +
+          "</span><span id='message'>" + replaceStringEmotesWithHTML(replaceStringCheerWithHTML(message), emotes) + "</span></div>";
 
         // Add css class if highlighted
         if (isHighlightedMsg) {
@@ -257,14 +327,20 @@ const run = async () => {
     }
   });
 
-  // These will be run whenever the chat-app starts.
-  chatbar.innerHTML = "<b>Loading badge image URLs...</b>";
+  // These statements will be run whenever the chat-app starts.
+  // Login first
+  await retrieveAPIToken();
+  // Get broadcaster ID
+  await fetchBroadcasterID();
+  // Load badges
   await loadBadges();
-
+  // Load cheermotes
+  await loadCheermotes();
+  // Connect to chat server
   await chat.connect().then(globalUserState => {
     chatbar.innerHTML = "<b>Connected!</b> Joining channel...";
   });
-
+  // Join channel chat
   await chat.join(channel).then(globalUserState => {
     chatbar.innerHTML = "<b>Joined channel '" + channel + "'!</b> New messages should appear here.";
   });
