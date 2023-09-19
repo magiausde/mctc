@@ -41,7 +41,7 @@
     /* empty for now */
 }
 
-#message .highlighted {
+#message.highlighted {
     /* Style for highlighted message */
     color: goldenrod;
     font-weight: bold;

@@ -259,7 +259,7 @@ function isMessageAllowed(msgobj) {
 
     // Is the message a command (like !shop)?
     // > Commands should not be displayed
-    if (msgobj.message[0] === "!") {
+    if ((msgobj.message[0] | "") === "!") {
         console.debug("Message seems to be a command, ignoring");
         return false;
     }
@@ -317,7 +317,6 @@ const run = async () => {
     const emotes = msgobj.tags.emotes;
     // Check if it is a highlighted message
     const isHighlightedMsg = msgobj.tags.hasOwnProperty("msgId") && (msgobj.tags.msgId === "highlighted-message");
-    console.debug("Is highlighted? " + isHighlightedMsg);
 
     // Debug stuff
     // Might spam your DevTools console if a lot is going on in chat.
@@ -329,7 +328,7 @@ const run = async () => {
         <img class='emote' src='https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_b0c6ccb3b12b4f99a9cc83af365a09f1/default/dark/3.0'>\
         &nbsp;This message has been deleted!&nbsp;<img class='emote' src='https://static-cdn.jtvnw.net/emoticons/v2/81103/default/dark/3.0'></span></div>";
     } else {
-    // Is is still a message we would like to show? Yes? Then show it!
+        // Is is still a message we would like to show? Yes? Then show it!
         if (isMessageAllowed(msgobj)){
             chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(msgobj) + 
             "</span><span id='username' style='color: " + usercolor + ";'>" + username +
