@@ -225,7 +225,7 @@ function replaceStringCheerWithHTML(msgobj) {
     } else {
         cheermotes.data.forEach(cm => {
             // Search for occurances => loadCheer100 <= loadCheer = Prefix, 100 = Bits of cheermote
-            pattern = cm.prefix + '(\\d+)';
+            pattern = '\\b' + cm.prefix + '(\\d+)';
             regex = RegExp(pattern, "i"); // case insensitive!
 
             while ( (cmr = regex.exec(msgtext)) ) {
@@ -259,7 +259,7 @@ function isMessageAllowed(msgobj) {
 
     // Is the message a command (like !shop)?
     // > Commands should not be displayed
-    if ((msgobj.message[0] | "") === "!") {
+    if ((msgobj.message[0] || "") === "!") {
         console.debug("Message seems to be a command, ignoring");
         return false;
     }
