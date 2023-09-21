@@ -284,10 +284,10 @@ function convertMentionsCSS(msgobj) {
     // The check is cheaper in terms of computing power than doing the RegEx all the time.
     // So only do it, if necessary.
     if (msgobj.message.includes("@")) {
-        return msgobj.message.replace(mentionregex, '<span class="mention">$&</span>');
-    } else {
-        return msgobj;
+        msgobj.message = msgobj.message.replace(mentionregex, '<span class="mention">$&</span>');
     }
+
+    return msgobj;
 }
 
 const run = async () => {
