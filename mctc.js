@@ -39,7 +39,7 @@ if (APP_SECRET === "") {
     APP_SECRET = urlParams.get('appsecret');
 }
 
-const username = undefined; 
+const username = undefined;
 token = undefined; // Will be requested later
 broadcasterid = -1; // Will be looked up later (via ID)
 badgeURLs = []; // contains the links to the badges
@@ -69,33 +69,32 @@ function getHTMLSafeText(rawmsg) {
 
 // Based on https://www.stefanjudis.com/blog/how-to-display-twitch-emotes-in-tmi-js-chat-messages/
 // This function replaces text with the emote images (HTML)
-function replaceStringEmotesWithHTML(message, emotes) {
+function replaceStringEmotesWithHTML(msgobj) {
+    const emotes = msgobj.tags.emotes;
+
     // If emotes aren't defined, we have nothing to do
-    if (!emotes) return message;
-  
+    if (!emotes) return msgobj;
+
     // Contains the string to be replaced with HTML
     // ['Kappa' => '<img ...></img>']
     const stringReplacements = [];
-  
+
     // Go trough all emotes the message contains
     Object.entries(emotes).forEach(([index, data]) => {
         // start and end are the char positions of the emote text
-      stringToReplace = message.substring(data.start, data.end+1);
-  
-      // Add replacement to array
-      stringReplacements.push({
-        stringToReplace: stringToReplace,
-        replacement: `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${data.id}/default/dark/3.0">`,
-      });
+        stringToReplace = message.substring(data.start, data.end + 1);
+
+        // Add replacement to array
+        stringReplacements.push({
+            stringToReplace: stringToReplace,
+            replacement: `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${data.id}/default/dark/3.0"/>`,
+        });
     });
 
-    //console.info(stringReplacements);
-  
-    messageHTML = message;
     // Now, replace the strings with HTML
-    stringReplacements.forEach((sr) => messageHTML = messageHTML.replaceAll(sr.stringToReplace, sr.replacement));
-  
-    return messageHTML;
+    stringReplacements.forEach((sr) => msgobj.message = msgobj.message.replaceAll(sr.stringToReplace, sr.replacement));
+
+    return msgobj;
 }
 
 async function retrieveAPIToken() {
@@ -107,7 +106,7 @@ async function retrieveAPIToken() {
             'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
         },
         body: "client_id=" + APP_ID + "&client_secret=" + APP_SECRET + "&grant_type=client_credentials"
-        }
+    }
     );
     const authInfo = await responseAuth.json();
     token = authInfo.access_token;
@@ -182,9 +181,9 @@ async function loadCheermotes() {
     // Sort min_bits descending (so we can check what is the highest tier)
     // It looks like the "tier" array is already sorted ascending, but we should not rely on that!
     cheermotes.data.forEach(cm => {
-        cm.tiers.sort((a, b) => {  
-            return b.min_bits-a.min_bits;
-          });
+        cm.tiers.sort((a, b) => {
+            return b.min_bits - a.min_bits;
+        });
     });
 
     console.debug(cheermotes);
@@ -217,32 +216,31 @@ function getBadgesForUserFromMessage(msg) {
 // Returns text/String!
 // Info: Cheermotes are case insensitive! So cheer500 and Cheer500 must work
 function replaceStringCheerWithHTML(msgobj) {
-    msgtext = getHTMLSafeText(msgobj.message);
-
     // If the message does not include bits-info, just return the message text
     if (!msgobj.hasOwnProperty("bits")) {
-        return msgtext;
+        return msgobj;
     } else {
         cheermotes.data.forEach(cm => {
             // Search for occurances => loadCheer100 <= loadCheer = Prefix, 100 = Bits of cheermote
-            pattern = cm.prefix + '(\\d+)';
+            pattern = '\\b' + cm.prefix + '(\\d+)';
             regex = RegExp(pattern, "i"); // case insensitive!
 
-            while ( (cmr = regex.exec(msgtext)) ) {
-                console.debug("Found " + cmr[0] + " in " + msgtext);
+            while ((cmr = regex.exec(msgobj.message))) {
+                //console.debug("Found " + cmr[0] + " in " + msgobj.message);
                 partbits = cmr[1];
 
                 // Now check which is the highest cheermote to use (partbits > min_bits)
                 for (let tier of cm.tiers) {
                     if (partbits >= tier.min_bits) {
-                        msgtext = msgtext.replaceAll(cmr[0], '<img class="cheermote" src="' + tier.images.dark.animated[3] + '"></img><span class="bits">' + cmr[1] + '</span>');
+                        msgobj.message = msgobj.message.replaceAll(cmr[0], '<img class="cheermote" src="' + tier.images.dark.animated[3] + '"/><span class="bits">' + cmr[1] + '</span>');
+                        //console.debug(msgobj.message);
                         break;
                     }
                 }
             }
         });
 
-        return msgtext;
+        return msgobj;
     }
 }
 
@@ -252,14 +250,14 @@ function isMessageAllowed(msgobj) {
 
     // Is the event a user message?
     // > We will only show user messages in chat
-    if ((msgobj.event !== "PRIVMSG") && (msgobj.event !== "CHEER")) { 
+    if ((msgobj.event !== "PRIVMSG") && (msgobj.event !== "CHEER")) {
         console.debug("Event ain't chat message or cheer, ignoring");
         return false;
     }
 
     // Is the message a command (like !shop)?
     // > Commands should not be displayed
-    if ((msgobj.message[0] | "") === "!") {
+    if ((msgobj.message[0] || "") === "!") {
         console.debug("Message seems to be a command, ignoring");
         return false;
     }
@@ -282,87 +280,91 @@ function isMessageAllowed(msgobj) {
     return true;
 }
 
-function convertMentionsCSS(message) {
+function convertMentionsCSS(msgobj) {
     // The check is cheaper in terms of computing power than doing the RegEx all the time.
     // So only do it, if necessary.
-    if (message.includes("@")) {
-        return message.replace(mentionregex, '<span class="mention">$&</span>');
+    if (msgobj.message.includes("@")) {
+        return msgobj.message.replace(mentionregex, '<span class="mention">$&</span>');
     } else {
-        return message;
+        return msgobj;
     }
 }
 
 const run = async () => {
     // Create new twitch-js Chat instance
-  const chat = new Chat({
-    username,
-    APP_SECRET,
-    log: { level: "warn" }
-  });
+    const chat = new Chat({
+        username,
+        APP_SECRET,
+        log: { level: "warn" }
+    });
 
-  // chat.on is the event which gets fired whenever there is some activity in the chat.
-  // This mustn't necessarily be a chat message, it could also be, e.g. a resub, ping or ban event.
-  chat.on("*", (msgobj) => {
-    // Time the message/event was sent
-    const time = new Date(msgobj.timestamp).toLocaleTimeString();
-    // The event itself (usually "PRIVMSG" - user chat message)
-    const event = msgobj.event || mesmsgobjsage.command;
-    // username => all lowercase (e.g. nightbot) // displayName => e.g. NightBot
-    const username = msgobj.tags.displayName; // or message.username
-    // the users chat color (if set, or else your preferred value)
-    const usercolor = msgobj.tags.color || "aqua"; // <== You can specify a default color if a user has not set one
-    // "Real" message content, e.g. "Hello world! I'm magiausde"
-    const msgtext = msgobj.message || "";
-    // Array of emotes this message contains
-    const emotes = msgobj.tags.emotes;
-    // Check if it is a highlighted message
-    const isHighlightedMsg = msgobj.tags.hasOwnProperty("msgId") && (msgobj.tags.msgId === "highlighted-message");
+    // chat.on is the event which gets fired whenever there is some activity in the chat.
+    // This mustn't necessarily be a chat message, it could also be, e.g. a resub, ping or ban event.
+    chat.on("*", (msgobj) => {
+        // Time the message/event was sent
+        const time = new Date(msgobj.timestamp).toLocaleTimeString();
+        // The event itself (usually "PRIVMSG" - user chat message)
+        const event = msgobj.event || mesmsgobjsage.command;
+        // username => all lowercase (e.g. nightbot) // displayName => e.g. NightBot
+        const username = msgobj.tags.displayName; // or message.username
+        // the users chat color (if set, or else your preferred value)
+        const usercolor = msgobj.tags.color || "aqua"; // <== You can specify a default color if a user has not set one
+        // "Real" message content, e.g. "Hello world! I'm magiausde"
+        const msgtext = msgobj.message || "";
+        // Check if it is a highlighted message
+        const isHighlightedMsg = msgobj.tags.hasOwnProperty("msgId") && (msgobj.tags.msgId === "highlighted-message");
 
-    // Debug stuff
-    // Might spam your DevTools console if a lot is going on in chat.
-    console.debug(`${time} - ${event} - ${username} - ${msgtext}`);
-    console.debug(msgobj);
+        // Debug stuff
+        // Might spam your DevTools console if a lot is going on in chat.
+        console.debug(`${time} - ${event} - ${username} - ${msgtext}`);
+        console.debug(msgobj);
 
-    if ((event === "CLEARMSG") && (msgtext === currentmsgraw)) {
-        chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='message'>\
+        if ((event === "CLEARMSG") && (msgtext === currentmsgraw)) {
+            chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='message'>\
         <img class='emote' src='https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_b0c6ccb3b12b4f99a9cc83af365a09f1/default/dark/3.0'>\
         &nbsp;This message has been deleted!&nbsp;<img class='emote' src='https://static-cdn.jtvnw.net/emoticons/v2/81103/default/dark/3.0'></span></div>";
-    } else {
-        // Is is still a message we would like to show? Yes? Then show it!
-        if (isMessageAllowed(msgobj)){
-            chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(msgobj) + 
-            "</span><span id='username' style='color: " + usercolor + ";'>" + username +
-            "</span><span id='message'>" + convertMentionsCSS(replaceStringEmotesWithHTML(replaceStringCheerWithHTML(msgobj), emotes)) + "</span></div>";
+        } else {
+            // Is is still a message we would like to show? Yes? Then show it!
+            if (isMessageAllowed(msgobj)) {
+                // First, make sure that users don't inject HTML
+                msgobj.message = getHTMLSafeText(msgobj.message);
 
-            // Add css class if highlighted
-            if (isHighlightedMsg) {
-                document.getElementById("message").classList.add("highlighted");
-            } else {
-                document.getElementById("message").classList.remove("highlighted");
+                htmlmsg = convertMentionsCSS(replaceStringCheerWithHTML(replaceStringEmotesWithHTML(msgobj))).message;
+                //console.log(htmlmsg);
+
+                chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(msgobj) +
+                    "</span><span id='username' style='color: " + usercolor + ";'>" + username +
+                    "</span><span id='message'>" + htmlmsg + "</span></div>";
+
+                // Add css class if highlighted
+                if (isHighlightedMsg) {
+                    document.getElementById("message").classList.add("highlighted");
+                } else {
+                    document.getElementById("message").classList.remove("highlighted");
+                }
+
+                currentmsgraw = msgtext;
             }
-
-            currentmsgraw = msgtext;
         }
-    }
-  });
+    });
 
-  // These statements will be run whenever the chat-app starts.
-  // Login first
-  await retrieveAPIToken();
-  // Get broadcaster ID
-  await fetchBroadcasterID();
-  // Load badges
-  await loadBadges();
-  // Load cheermotes
-  await loadCheermotes();
-  // Connect to chat server
-  await chat.connect().then(globalUserState => {
-    chatbar.innerHTML = "<b>Connected!</b> Joining channel...";
-  });
-  // Join channel chat
-  await chat.join(channel).then(globalUserState => {
-    chatbar.innerHTML = "<b>Joined channel '" + channel + "'!</b> New messages should appear here.";
-  });
+    // These statements will be run whenever the chat-app starts.
+    // Login first
+    await retrieveAPIToken();
+    // Get broadcaster ID
+    await fetchBroadcasterID();
+    // Load badges
+    await loadBadges();
+    // Load cheermotes
+    await loadCheermotes();
+    // Connect to chat server
+    await chat.connect().then(globalUserState => {
+        chatbar.innerHTML = "<b>Connected!</b> Joining channel...";
+    });
+    // Join channel chat
+    await chat.join(channel).then(globalUserState => {
+        chatbar.innerHTML = "<b>Joined channel '" + channel + "'!</b> New messages should appear here.";
+    });
 };
 
 // Run the chat app!
