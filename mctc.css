@@ -20,19 +20,22 @@
     height: 38px;
     vertical-align: middle;
     margin-top: -7px;
-    margin-right: 6px; /* Space to next badge */
+    margin-right: 6px;
+    /* Space to next badge */
 }
 
 /* This applies to ALL badges */
 #badges {
-    margin-right: 10px; /* margin between username */
+    margin-right: 10px;
+    /* margin between username */
 }
 
 /* Style how the chat message username is displayed */
 #username {
     /* color: ... will be automatically applied! */
     font-weight: bold;
-    margin-right: 15px; /* margin between chat message */
+    margin-right: 15px;
+    /* margin between chat message */
     text-shadow: black 0 0 8px;
 }
 
@@ -65,4 +68,10 @@
 .mention {
     font-style: italic;
     color: gray;
+}
+
+/* Gets applied to all compacted links "[Link]" */
+.link {
+    font-style: italic;
+    color: aquamarine;
 }
