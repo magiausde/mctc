@@ -6,6 +6,7 @@
     font-family: 'Trebuchet MS', sans-serif;
     color: white;
     letter-spacing: -1.5px;
+    white-space: nowrap;
 }
 
 /* Style how emotes are displayed */
