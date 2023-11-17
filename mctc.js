@@ -43,6 +43,7 @@ const username = undefined;
 token = undefined; // Will be requested later
 broadcasterid = -1; // Will be looked up later (via ID)
 badgeURLs = []; // contains the links to the badges
+extEmotesURLs = []; // contains the links to the extension emotes
 cheermotes = {}; // contains the cheermotes JSON
 const mentionregex = /@\w+\s/gi;
 currentmsgraw = ""; // Raw message text of currently shown message (needed for CLEARMSG)
@@ -94,6 +95,22 @@ function replaceStringEmotesWithHTML(msgobj) {
     // Now, replace the strings with HTML
     stringReplacements.forEach((sr) => msgobj.message = msgobj.message.replaceAll(sr.stringToReplace, sr.replacement));
 
+    return msgobj;
+}
+
+// This function replaces text with the extension emote images (HTML)
+function replaceStringExtensionEmotesWithHTML(msgobj) {
+    // Contains the string to be replaced with HTML
+    // ['Kappa' => '<img ...></img>']
+    const stringReplacements = [];
+
+    // Go through all extension emotes the message might contain
+    Object.entries(extEmotesURLs).forEach(([code, url]) => {
+        // Replace plain text with HTML img code
+        msgobj.message = msgobj.message.replaceAll(code, '<img class="emote" src="' + url + '"/>');
+    });
+
+    // Return the modified msgobj
     return msgobj;
 }
 
@@ -187,6 +204,84 @@ async function loadCheermotes() {
     });
 
     console.debug(cheermotes);
+}
+
+// loadExtEmotes retrieves the global and channel-specific BTTV, FFZ and 7TV emotes
+async function loadExtEmotes() {
+    chatbar.innerHTML = "<b>Loading external emotes...</b>";
+
+    // === FFZ ===
+    chatbar.innerHTML = "<b>Loading external emotes (FFZ)...</b>";
+    for (const scope of ['emotes/global', 'users/twitch/' + encodeURIComponent(broadcasterid)]) {
+        //    ['emotes/global', 'users/twitch/' + encodeURIComponent(broadcasterid)].forEach(scope => {
+        const response = await fetch("https://api.betterttv.net/3/cached/frankerfacez/" + scope);
+
+        if (response.ok) {
+            const bd = await response.json();
+
+            bd.forEach(emote => {
+                extEmotesURLs[emote.code] = emote.images["2x"];
+            });
+        }
+    }
+
+    // === BTTV global ===
+    chatbar.innerHTML = "<b>Loading external emotes (BTTV global)...</b>";
+    for (const scope of ['cached/emotes/global']) { // could be extended in the future
+        const response = await fetch("https://api.betterttv.net/3/" + scope);
+
+        if (response.ok) { // BTTV returns a 404 if a user isn't known
+            const bd = await response.json();
+
+            bd.forEach(emote => {
+                if (emote.emote) {
+                    emote = emote.emote;
+                }
+                console.debug(emote.code);
+                extEmotesURLs[emote.code] = "https://cdn.betterttv.net/emote/" + emote.id + "/2x";
+            });
+        }
+    }
+
+    // === BTTV channel specific ===
+    chatbar.innerHTML = "<b>Loading external emotes (BTTV channel specific)...</b>";
+    for (const scope of ['cached/users/twitch/' + encodeURIComponent(broadcasterid)]) { // could be extended in the future
+        const response = await fetch("https://api.betterttv.net/3/" + scope);
+
+        if (response.ok) { // BTTV returns a 404 if a user isn't known
+            const bd = await response.json();
+
+            for (const emoteScope of [bd.channelEmotes, bd.sharedEmotes]) {
+                if (emoteScope) {
+                    emoteScope.forEach(emote => {
+                        if (emote.emote) {
+                            emote = emote.emote;
+                        }
+                        console.debug(emote.code);
+                        extEmotesURLs[emote.code] = "https://cdn.betterttv.net/emote/" + emote.id + "/2x";
+                    });
+                }
+            }
+
+        }
+    }
+
+    // === 7TV ===
+    chatbar.innerHTML = "<b>Loading external emotes (7TV)...</b>";
+    for (const scope of ['users/' + encodeURIComponent(broadcasterid) + '/emotes']) {
+        //    ['emotes/global', 'users/twitch/' + encodeURIComponent(broadcasterid)].forEach(scope => {
+        const response = await fetch("https://7tv.io/v3/" + scope);
+
+        if (response.ok) {
+            const bd = await response.json();
+
+            bd.forEach(emote => {
+                extEmotesURLs[emote.code] = "https://cdn.betterttv.net/emote/" + emote.id + "/2x";
+            });
+        }
+    }
+
+    console.debug(extEmotesURLs);
 }
 
 // This function takes a message object and returns HTML to show the badges for a user
@@ -329,7 +424,7 @@ const run = async () => {
                 // First, make sure that users don't inject HTML
                 msgobj.message = getHTMLSafeText(msgobj.message);
 
-                htmlmsg = convertMentionsCSS(replaceStringCheerWithHTML(replaceStringEmotesWithHTML(msgobj))).message;
+                htmlmsg = convertMentionsCSS(replaceStringExtensionEmotesWithHTML(replaceStringCheerWithHTML(replaceStringEmotesWithHTML(msgobj)))).message;
                 //console.log(htmlmsg);
 
                 chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(msgobj) +
@@ -357,6 +452,8 @@ const run = async () => {
     await loadBadges();
     // Load cheermotes
     await loadCheermotes();
+    // Load extension emotes
+    await loadExtEmotes();
     // Connect to chat server
     await chat.connect().then(globalUserState => {
         chatbar.innerHTML = "<b>Connected!</b> Joining channel...";
