@@ -47,6 +47,8 @@ extEmotesURLs = []; // contains the links to the extension emotes
 cheermotes = {}; // contains the cheermotes JSON
 const mentionregex = /@\w+\s/gi;
 currentmsgraw = ""; // Raw message text of currently shown message (needed for CLEARMSG)
+const linkregex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/
+
 
 // Update Window/Tab title
 document.title = 'MCTC | ' + channel;
@@ -375,12 +377,20 @@ function isMessageAllowed(msgobj) {
     return true;
 }
 
+// Add a css class around mentions to apply a custom design to them
 function convertMentionsCSS(msgobj) {
     // The check is cheaper in terms of computing power than doing the RegEx all the time.
     // So only do it, if necessary.
     if (msgobj.message.includes("@")) {
         msgobj.message = msgobj.message.replace(mentionregex, '<span class="mention">$&</span>');
     }
+
+    return msgobj;
+}
+
+// Convert/compact links and apply a custom design to them
+function convertLinks(msgobj) {
+    msgobj.message = msgobj.message.replace(linkregex, '<span class="link">[Link]</span>');
 
     return msgobj;
 }
@@ -424,7 +434,7 @@ const run = async () => {
                 // First, make sure that users don't inject HTML
                 msgobj.message = getHTMLSafeText(msgobj.message);
 
-                htmlmsg = convertMentionsCSS(replaceStringExtensionEmotesWithHTML(replaceStringCheerWithHTML(replaceStringEmotesWithHTML(msgobj)))).message;
+                htmlmsg = convertMentionsCSS(replaceStringExtensionEmotesWithHTML(replaceStringCheerWithHTML(replaceStringEmotesWithHTML(convertLinks(msgobj))))).message;
                 //console.log(htmlmsg);
 
                 chatbar.innerHTML = "<div style='vertical-align: middle;'><span id='badges'>" + getBadgesForUserFromMessage(msgobj) +
