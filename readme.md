@@ -6,6 +6,7 @@ See some examples below:
 ![Example 1](https://s.magiaus.de/githubpics/mctc1.png)
 ![Example 2](https://s.magiaus.de/githubpics/mctc2.png)
 ![Example 3](https://s.magiaus.de/githubpics/mctc3.png)
+![Example 4](https://s.magiaus.de/githubpics/mctc4.png)
 
 ## How to use it
 ### Preparation
