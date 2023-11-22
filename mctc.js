@@ -109,7 +109,7 @@ function replaceStringExtensionEmotesWithHTML(msgobj) {
     // Go through all extension emotes the message might contain
     Object.entries(extEmotesURLs).forEach(([code, url]) => {
         // Replace plain text with HTML img code
-        msgobj.message = msgobj.message.replaceAll(code, '<img class="emote" src="' + url + '"/>');
+        msgobj.message = msgobj.message.replaceAll(new RegExp("\\b" + code, "g"), '<img class="emote" src="' + url + '"/>');
     });
 
     // Return the modified msgobj
