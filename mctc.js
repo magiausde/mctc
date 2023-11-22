@@ -45,7 +45,7 @@ broadcasterid = -1; // Will be looked up later (via ID)
 badgeURLs = []; // contains the links to the badges
 extEmotesURLs = []; // contains the links to the extension emotes
 cheermotes = {}; // contains the cheermotes JSON
-const mentionregex = /@\w+\s/gi;
+const mentionregex = /\B@\w+\b/gi;
 currentmsgraw = ""; // Raw message text of currently shown message (needed for CLEARMSG)
 const linkregex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/
 
